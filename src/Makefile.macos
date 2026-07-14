@@ -1,0 +1,16 @@
+CXX = g++
+
+CXXFLAGS = -I. -DSFML_STATIC -DIMGUI_SFML_STATIC -DTAGLIB_STATIC -O2
+LDFLAGS = \
+-lsfml-graphics \
+-lsfml-window \
+-lsfml-audio \
+-lsfml-system \
+-ltag \
+-framework OpenGL \
+-framework Cocoa \
+-framework IOKit \
+-framework CoreFoundation
+SRCS = mishplay.cpp visualizer.cpp imgui.cpp imgui_draw.cpp imgui_widgets.cpp imgui_tables.cpp imgui-SFML.cpp
+TARGET = $(BUILD_DIR)/mishplayer
+OBJS = $(SRCS:.cpp=.o)

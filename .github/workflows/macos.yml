@@ -1,0 +1,35 @@
+name: Build macOS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install sfml taglib
+
+      - name: Build mish
+        working-directory: src
+        run: |
+          make -f Makefile.macos
+
+      - name: Package
+        run: |
+          mkdir -p release/assets
+          cp src/builds/* release/
+          cp -r assets/* release/assets/
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: mish-macos
+          path: release/

@@ -294,39 +294,78 @@ void extractMetadata(Track& track) {
     // FLAC art
     // ----------------------------
 
-    else if (ext == "flac") {
+		else if (ext == "flac") {
 
-        TagLib::FLAC::File flac(track.fullPath.c_str());
+		if (f.isNull()) {
+			std::cout << "   No TagLib file handle available\n";
+			return;
+		}
 
+		TagLib::File* baseFile = f.file();
 
-        if (!flac.isValid())
-            return;
+		auto* flacFile =
+			dynamic_cast<TagLib::FLAC::File*>(baseFile);
 
+		if (!flacFile) {
+			std::cout << "   Dynamic cast to FLAC failed\n";
+			return;
+		}
 
-        auto pictures = flac.pictureList();
-
-
-        if (!pictures.isEmpty()) {
-
-            auto data =
-                pictures.front()->data();
-
-
-            auto texture =
-                std::make_shared<sf::Texture>();
+		std::cout << "   FLAC cast OK!\n";
 
 
-            if (texture->loadFromMemory(
-                    data.data(),
-                    data.size()))
-            {
-                track.albumArt = texture;
+		auto pictures = flacFile->pictureList();
 
-                std::cout
-                    << "   FLAC art loaded!\n";
-            }
-        }
-    }
+		std::cout << "   FLAC pictures found: "
+				  << pictures.size()
+				  << "\n";
+
+
+		if (!pictures.isEmpty())
+		{
+			TagLib::FLAC::Picture* cover = nullptr;
+
+			for (auto* pic : pictures)
+			{
+				if (pic->type() == TagLib::FLAC::Picture::FrontCover)
+				{
+					cover = pic;
+					break;
+				}
+			}
+
+			if (!cover)
+				cover = pictures.front();
+
+
+			auto data = cover->data();
+
+			std::cout
+				<< "   FLAC art bytes: "
+				<< data.size()
+				<< "\n";
+
+
+			auto texture =
+				std::make_shared<sf::Texture>();
+
+
+			if(texture->loadFromMemory(
+					data.data(),
+					data.size()))
+			{
+				track.albumArt = texture;
+
+				std::cout
+					<< "   FLAC art loaded!\n";
+			}
+			else
+			{
+				std::cout
+					<< "   FLAC art decode failed!\n";
+			}
+		}
+	}
 }
 
 void saveConfig(const std::string& path) {

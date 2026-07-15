@@ -106,7 +106,7 @@ void Visualizer::update(const sf::Sound& sound, const sf::SoundBuffer& buffer) {
             float rawMagnitude = magLow + (magHigh - magLow) * interpolation;
 
             float normalizedMag = rawMagnitude / (fftSize / 2.0f);
-            float processedMag = std::log10(1.0f + normalizedMag * 60.0f); 
+            float processedMag = std::pow(normalizedMag * 100.0f, 0.6f);
 
             if (processedMag > m_magnitudes[i]) {
                 m_magnitudes[i] = processedMag;
@@ -134,8 +134,8 @@ void Visualizer::update(const sf::Sound& sound, const sf::SoundBuffer& buffer) {
     // Subtly drift the screen center while injecting high-speed bass jitter (Combining styles!)
     float driftX = std::sin(time * 1.0f) * 12.0f;
     float driftY = std::cos(time * 1.3f) * 12.0f;
-    float jitterX = ((float)rand() / RAND_MAX - 0.5f) * 14.0f * bassIntensity;
-    float jitterY = ((float)rand() / RAND_MAX - 0.5f) * 14.0f * bassIntensity;
+    float jitterX = (static_cast<float>(rand()) / static_cast<float>(RAND_MAX) - 0.5f) * 14.0f * bassIntensity;
+    float jitterY = (static_cast<float>(rand()) / static_cast<float>(RAND_MAX) - 0.5f) * 14.0f * bassIntensity;
     
     m_feedbackSprite.setPosition({m_width / 2.0f + driftX + jitterX, m_height / 2.0f + driftY + jitterY});
 
@@ -143,7 +143,8 @@ void Visualizer::update(const sf::Sound& sound, const sf::SoundBuffer& buffer) {
     float zoomFactor = 0.975f + (bassIntensity * 0.06f);
     float spinDirection = (std::sin(time * 0.4f) > 0.0f) ? 1.0f : -1.0f;
     float rotationDelta = (0.8f + (trebleIntensity * 8.0f)) * spinDirection;
-    m_rotationAngle += rotationDelta;
+    m_rotationAngle += rotationDelta;	
+	m_rotationAngle = std::fmod(m_rotationAngle, 360.0f);
 
     m_feedbackSprite.setScale({zoomFactor, zoomFactor});
     m_feedbackSprite.setRotation(sf::degrees(m_rotationAngle * 0.12f));
@@ -174,7 +175,8 @@ void Visualizer::update(const sf::Sound& sound, const sf::SoundBuffer& buffer) {
         std::uint8_t g = static_cast<std::uint8_t>(std::cos(angle * 3.0f + time * 1.2f) * 127.0f + 128.0f);
         std::uint8_t b = static_cast<std::uint8_t>(std::sin(angle * 1.5f - time * 1.5f) * 127.0f + 128.0f);
 
-        web[i] = sf::Vector2f(x,y), sf::Color(r,g,b,200), sf::Vector2f()
+        web[i].position = sf::Vector2f(x, y);
+		web[i].color = sf::Color(r, g, b, 200);
     }
     m_primaryBuffer.draw(web);
 
@@ -182,21 +184,24 @@ void Visualizer::update(const sf::Sound& sound, const sf::SoundBuffer& buffer) {
     if (bassIntensity > 0.45f || trebleIntensity > 0.35f) {
         sf::VertexArray sparks(sf::PrimitiveType::Lines, 16);
         for (size_t i = 0; i < 16; i += 2) {
-            float angle = ((float)rand() / RAND_MAX) * 2.0f * PI;
+            float angle = (static_cast<float>(rand()) / static_cast<float>(RAND_MAX)) * 2.0f * PI;
             float startDist = 30.0f + (bassIntensity * 50.0f);
             float endDist = startDist + 80.0f + (trebleIntensity * 180.0f);
 
             float startX = center.x + std::cos(angle) * startDist;
             float startY = center.y + std::sin(angle) * startDist;
-            float endX = center.x + std::cos(angle) * endDist + ((float)rand() / RAND_MAX - 0.5f) * 40.0f;
-            float endY = center.y + std::sin(angle) * endDist + ((float)rand() / RAND_MAX - 0.5f) * 40.0f;
+            float endX = center.x + std::cos(angle) * endDist + (static_cast<float>(rand()) / static_cast<float>(RAND_MAX) - 0.5f) * 40.0f;
+            float endY = center.y + std::sin(angle) * endDist + (static_cast<float>(rand()) / static_cast<float>(RAND_MAX) - 0.5f) * 40.0f;
 
             std::uint8_t r = rand() % 256;
             std::uint8_t g = rand() % 256;
             std::uint8_t b = rand() % 256;
 
-            sparks[i] = sf::Vertex(sf::Vector2f(startX, startY), sf::Color(r, g, b, 255));
-            sparks[i + 1] = sf::Vertex(sf::Vector2f(endX, endY), sf::Color(r, g, b, 0));
+            sparks[i].position = sf::Vector2f(startX, startY);
+			sparks[i].color = sf::Color(r, g, b, 255);
+
+			sparks[i + 1].position = sf::Vector2f(endX, endY);
+			sparks[i + 1].color = sf::Color(r, g, b, 0);
         }
         m_primaryBuffer.draw(sparks);
     }

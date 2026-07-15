@@ -12,7 +12,7 @@
 
 <img src="assets/mish.png" width="150">
 
-**mish (C) 2026 raind4sher**
+**mish (C) 2026 by josh**
 
 ![GitHub release](https://img.shields.io/github/v/release/necorii/mish?style=for-the-badge)
 ![GitHub stars](https://img.shields.io/github/stars/necorii/mish?style=for-the-badge)

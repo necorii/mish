@@ -1,13 +1,15 @@
 CXX = clang++
+OBJCXX = clang++
 
 CXXFLAGS = -I. \
--I/opt/homebrew/include \
+-I$(shell brew --prefix)/include \
 -DIMGUI_SFML_STATIC \
 -DTAGLIB_STATIC \
 -std=c++17 \
 -O2
 
 LDFLAGS = \
+-L$(shell brew --prefix)/lib \
 -lsfml-graphics \
 -lsfml-window \
 -lsfml-audio \
@@ -18,9 +20,10 @@ LDFLAGS = \
 -framework IOKit \
 -framework CoreFoundation
 
-SRCS = mishplay.cpp visualizer.cpp imgui.cpp imgui_draw.cpp imgui_widgets.cpp imgui_tables.cpp imgui-SFML.cpp
+SRCS = mishplay.cpp platform-mac.mm visualizer.cpp imgui.cpp imgui_draw.cpp imgui_widgets.cpp imgui_tables.cpp imgui-SFML.cpp
 
 OBJS = $(SRCS:.cpp=.o)
+OBJS := $(OBJS:.mm=.o)
 
 BUILD_DIR = builds
 

@@ -273,3 +273,34 @@ jobs:
         with:
           name: mishplayer-macos-universal-app
           path: release/
+          
+      #
+      # Smoke test
+      #
+
+      - name: Launch MishPlayer
+        run: |
+
+          APP=release/MishPlayer.app
+
+          chmod +x \
+          $APP/Contents/MacOS/mishplayer
+
+          echo "Launching..."
+
+          $APP/Contents/MacOS/mishplayer &
+
+          PID=$!
+
+          sleep 5
+
+          if ps -p $PID > /dev/null
+          then
+            echo "✅ MishPlayer is still running."
+
+            kill $PID
+          else
+            echo "❌ MishPlayer exited unexpectedly."
+
+            exit 1
+          fi

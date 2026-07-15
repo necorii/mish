@@ -31,7 +31,7 @@ jobs:
           make clean
           make -f Makefile.macos ARCHS="-arch arm64" BREW_PREFIX=/opt/homebrew
 
-          mv builds/mishplayer builds/mishplayer-arm64.bin
+          mv builds/mishplayer-arm64 builds/mishplayer-arm64.bin
 
 
 
@@ -62,7 +62,7 @@ jobs:
           make clean
           make -f Makefile.macos ARCHS="-arch x86_64" BREW_PREFIX=/usr/local
 
-          mv builds/mishplayer builds/mishplayer-x86_64.bin
+          mv builds/mishplayer-x86_64 builds/mishplayer-x86_64.bin
 
 
 

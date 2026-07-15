@@ -4,6 +4,7 @@ CXXFLAGS = -I. \
 -I/opt/homebrew/include \
 -DIMGUI_SFML_STATIC \
 -DTAGLIB_STATIC \
+-std=c++17 \
 -O2
 
 LDFLAGS = \

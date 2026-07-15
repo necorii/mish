@@ -20,7 +20,7 @@ jobs:
       - name: Build mish
         working-directory: src
         run: |
-          make -f Makefile.macos
+          make -f Makefile.macos ARCHS="-arch arm64 -arch x86_64"
 
       - name: Package
         run: |

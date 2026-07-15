@@ -1,15 +1,19 @@
 CXX = clang++
 OBJCXX = clang++
+
 BREW_PREFIX := $(shell brew --prefix)
 
-CXXFLAGS = -I. \
+ARCHS ?= -arch arm64 -arch x86_64
+
+CXXFLAGS = $(ARCHS) \
+-I. \
 -I$(BREW_PREFIX)/include \
 -DIMGUI_SFML_STATIC \
 -DTAGLIB_STATIC \
 -std=c++17 \
 -O2
 
-LDFLAGS = \
+LDFLAGS = $(ARCHS) \
 -L$(BREW_PREFIX)/lib \
 -lsfml-graphics \
 -lsfml-window \
@@ -40,14 +44,14 @@ build: setup $(TARGET)
 	@echo "------------------------------"
 
 $(TARGET): $(OBJS)
-	$(CXX) $(OBJS) -o $(TARGET) $(LDFLAGS)
+	$(CXX) $(ARCHS) $(OBJS) -o $(TARGET) $(LDFLAGS)
 
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(ARCHS) $(CXXFLAGS) -c $< -o $@
 	
 %.o: %.mm
-	$(CXX) $(CXXFLAGS) -x objective-c++ -c $< -o $@
-
+	$(CXX) $(ARCHS) $(CXXFLAGS) -x objective-c++ -c $< -o $@
+	
 setup:
 	mkdir -p $(BUILD_DIR)
 

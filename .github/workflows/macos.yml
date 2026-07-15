@@ -7,29 +7,90 @@ on:
 
 jobs:
   build-macos:
+
     runs-on: macos-latest
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+
+      # ARM64 dependencies (Apple Silicon Homebrew)
+      - name: Install ARM64 dependencies
         run: |
           brew install sfml taglib
 
-      - name: Build mish
+
+      # Build Apple Silicon version
+      - name: Build ARM64
         working-directory: src
         run: |
-          make -f Makefile.macos ARCHS="-arch arm64 -arch x86_64"
+          make clean
+          make -f Makefile.macos ARCH=arm64
 
+          mv builds/mishplayer-arm64 builds/mishplayer-arm64.bin
+
+
+      # Intel Macs require Rosetta
+      - name: Install Rosetta
+        run: |
+          sudo softwareupdate --install-rosetta --agree-to-license
+
+
+      # Install Intel Homebrew
+      - name: Install Intel Homebrew
+        run: |
+          arch -x86_64 /bin/bash -c \
+          "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+
+      # Build Intel version
+      - name: Install Intel dependencies
+        run: |
+          arch -x86_64 /usr/local/bin/brew install sfml taglib
+
+
+      - name: Build x86_64
+        working-directory: src
+        run: |
+          export PATH="/usr/local/bin:$PATH"
+
+          make clean
+          make -f Makefile.macos ARCH=x86_64 BREW_PREFIX=/usr/local
+
+          mv builds/mishplayer-x86_64 builds/mishplayer-x86_64.bin
+
+
+      # Combine both architectures
+      - name: Create Universal Binary
+        working-directory: src
+        run: |
+          lipo \
+          -create \
+          builds/mishplayer-arm64.bin \
+          builds/mishplayer-x86_64.bin \
+          -output builds/mishplayer
+
+
+      - name: Verify Universal Binary
+        working-directory: src
+        run: |
+          file builds/mishplayer
+          lipo -info builds/mishplayer
+
+
+      # Package release
       - name: Package
         run: |
           mkdir -p release/assets
-          cp src/builds/* release/
+
+          cp src/builds/mishplayer release/
+
           cp -r assets/* release/assets/
+
 
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:
-          name: mish-macos
+          name: mish-macos-universal
           path: release/

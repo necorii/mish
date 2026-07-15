@@ -1,11 +1,14 @@
 CXX = clang++
 OBJCXX = clang++
 
-BREW_PREFIX := $(shell brew --prefix)
+# Override these from command line if needed:
+# make ARCH=arm64
+# make ARCH=x86_64 BREW_PREFIX=/usr/local
+ARCH ?= arm64
+BREW_PREFIX ?= $(shell brew --prefix)
 
-ARCHS ?= -arch arm64 -arch x86_64
-
-CXXFLAGS = $(ARCHS) \
+CXXFLAGS = \
+-arch $(ARCH) \
 -I. \
 -I$(BREW_PREFIX)/include \
 -DIMGUI_SFML_STATIC \
@@ -13,7 +16,8 @@ CXXFLAGS = $(ARCHS) \
 -std=c++17 \
 -O2
 
-LDFLAGS = $(ARCHS) \
+LDFLAGS = \
+-arch $(ARCH) \
 -L$(BREW_PREFIX)/lib \
 -lsfml-graphics \
 -lsfml-window \
@@ -25,37 +29,56 @@ LDFLAGS = $(ARCHS) \
 -framework IOKit \
 -framework CoreFoundation
 
-SRCS = mishplay.cpp platform-mac.mm visualizer.cpp imgui.cpp imgui_draw.cpp imgui_widgets.cpp imgui_tables.cpp imgui-SFML.cpp
+SRCS = \
+mishplay.cpp \
+platform-mac.mm \
+visualizer.cpp \
+imgui.cpp \
+imgui_draw.cpp \
+imgui_widgets.cpp \
+imgui_tables.cpp \
+imgui-SFML.cpp
 
 OBJS = $(SRCS:.cpp=.o)
 OBJS := $(OBJS:.mm=.o)
 
 BUILD_DIR = builds
 
-TARGET = $(BUILD_DIR)/mishplayer
+TARGET = $(BUILD_DIR)/mishplayer-$(ARCH)
+
 
 .PHONY: all build clean setup
 
+
 all: build
 
+
 build: setup $(TARGET)
-	@echo "------------------------------"
-	@echo "Successfully compiled: $(TARGET)"
-	@echo "------------------------------"
+	@echo "--------------------------------"
+	@echo " Built: $(TARGET)"
+	@echo " Architecture: $(ARCH)"
+	@echo " Brew: $(BREW_PREFIX)"
+	@echo "--------------------------------"
+
 
 $(TARGET): $(OBJS)
-	$(CXX) $(ARCHS) $(OBJS) -o $(TARGET) $(LDFLAGS)
+	$(CXX) $(OBJS) -o $@ $(LDFLAGS)
+
 
 %.o: %.cpp
-	$(CXX) $(ARCHS) $(CXXFLAGS) -c $< -o $@
-	
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+
 %.o: %.mm
-	$(CXX) $(ARCHS) $(CXXFLAGS) -x objective-c++ -c $< -o $@
-	
+	$(OBJCXX) $(CXXFLAGS) -x objective-c++ -c $< -o $@
+
+
 setup:
 	mkdir -p $(BUILD_DIR)
+
 
 clean:
 	rm -f *.o
 	rm -rf $(BUILD_DIR)
+
 	@echo "Cleaned build files"

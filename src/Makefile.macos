@@ -1,15 +1,16 @@
 CXX = clang++
 OBJCXX = clang++
+BREW_PREFIX := $(shell brew --prefix)
 
 CXXFLAGS = -I. \
--I/opt/homebrew/opt/sfml@2/include \
+-I$(BREW_PREFIX)/include \
 -DIMGUI_SFML_STATIC \
 -DTAGLIB_STATIC \
 -std=c++17 \
 -O2
 
 LDFLAGS = \
--L/opt/homebrew/opt/sfml@2/lib \
+-L$(BREW_PREFIX)/lib \
 -lsfml-graphics \
 -lsfml-window \
 -lsfml-audio \

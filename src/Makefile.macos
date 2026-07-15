@@ -2,14 +2,14 @@ CXX = clang++
 OBJCXX = clang++
 
 CXXFLAGS = -I. \
--I$(shell brew --prefix)/include \
+-I/opt/homebrew/opt/sfml@2/include \
 -DIMGUI_SFML_STATIC \
 -DTAGLIB_STATIC \
 -std=c++17 \
 -O2
 
 LDFLAGS = \
--L$(shell brew --prefix)/lib \
+-L/opt/homebrew/opt/sfml@2/lib \
 -lsfml-graphics \
 -lsfml-window \
 -lsfml-audio \
@@ -45,7 +45,7 @@ $(TARGET): $(OBJS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 	
 %.o: %.mm
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -x objective-c++ -c $< -o $@
 
 setup:
 	mkdir -p $(BUILD_DIR)

@@ -174,7 +174,7 @@ void Visualizer::update(const sf::Sound& sound, const sf::SoundBuffer& buffer) {
         std::uint8_t g = static_cast<std::uint8_t>(std::cos(angle * 3.0f + time * 1.2f) * 127.0f + 128.0f);
         std::uint8_t b = static_cast<std::uint8_t>(std::sin(angle * 1.5f - time * 1.5f) * 127.0f + 128.0f);
 
-        web[i] = sf::Vertex(sf::Vector2f(x, y), sf::Color(r, g, b, 200));
+        web[i] = sf::Vector2f(x,y), sf::Color(r,g,b,200), sf::Vector2f()
     }
     m_primaryBuffer.draw(web);
 

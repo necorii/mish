@@ -16,7 +16,7 @@ jobs:
       - name: Install dependencies
         run: |
           brew install sfml@2 taglib
-          brew link sfml@2 --force
+          echo "PKG_CONFIG_PATH=/opt/homebrew/opt/sfml@2/lib/pkgconfig" >> $GITHUB_ENV
 
       - name: Build mish
         working-directory: src

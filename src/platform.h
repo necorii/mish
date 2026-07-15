@@ -1,7 +1,8 @@
 #pragma once
 
 #include <string>
+#include <SFML/Graphics.hpp>
 
 std::string openFolderDialog();
 
-std::wstring utf8ToUtf16(const std::string& text);
+bool loadAppIcon(sf::Image& icon);

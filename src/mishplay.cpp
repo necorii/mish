@@ -24,34 +24,7 @@
 #include <iostream>
 #include <algorithm>
 
-#ifdef _WIN32
-#include <windows.h> // Required for conversion helper
 
-// Helper function to convert UTF-8 (std::string) to UTF-16 (std::wstring)
-std::wstring utf8ToUtf16(const std::string& utf8Str) {
-    if (utf8Str.empty()) return L"";
-    int size_needed = MultiByteToWideChar(CP_UTF8, 0, &utf8Str[0], (int)utf8Str.size(), NULL, 0);
-    std::wstring wstrTo(size_needed, 0);
-    MultiByteToWideChar(CP_UTF8, 0, &utf8Str[0], (int)utf8Str.size(), &wstrTo[0], size_needed);
-    return wstrTo;
-}
-
-std::wstring utf8ToUtf16(const std::string& utf8Str)
-{
-    return std::wstring(
-        utf8Str.begin(),
-        utf8Str.end()
-    );
-}
-
-#endif
-
-
-// Windows-specific headers to extract the embedded resource
-#ifdef _WIN32
-#include <windows.h>
-#define IDB_PNG_ICON 101 // Must match the resource ID if we use integers, or we can look it up by string
-#endif
 
 namespace fs = std::filesystem;
 const std::string CONFIG_FILE = "mish_config.txt";
@@ -70,26 +43,6 @@ struct Track {
     std::shared_ptr<sf::Texture> albumArt = nullptr; 
 };
 
-// Helper function to load our embedded PNG resource from the .exe binary
-bool loadIconFromResource(sf::Image& icon) {
-#ifdef _WIN32
-    // Find the custom "PNGFILE" resource named "IDB_PNG_ICON"
-    HRSRC hResource = FindResourceA(NULL, "IDB_PNG_ICON", "PNGFILE");
-    if (!hResource) return false;
-
-    HGLOBAL hMemory = LoadResource(NULL, hResource);
-    if (!hMemory) return false;
-
-    DWORD dwSize = SizeofResource(NULL, hResource);
-    LPVOID lpAddress = LockResource(hMemory);
-    if (!lpAddress) return false;
-
-    // Load SFML image directly from the extracted RAM buffer!
-    return icon.loadFromMemory(lpAddress, dwSize);
-#else
-    return false;
-#endif
-}
 
 void extractMetadata(Track& track) {
     std::cout << "\n[TagLib] Reading: " << track.filename << std::endl;
@@ -366,21 +319,28 @@ std::vector<Track> scanMusicFolder(const std::string& folderPath) {
     return playlist;
 }
 int main() {
-    sf::RenderWindow window(sf::VideoMode({1024, 768}), "mish");
+    sf::RenderWindow window(sf::VideoMode(1024,768), "mish");
     window.setFramerateLimit(60);
 
     // Center the window on the desktop monitor screen
     sf::VideoMode desktop = sf::VideoMode::getDesktopMode();
-    window.setPosition(sf::Vector2i(
-        static_cast<int>((desktop.size.x - window.getSize().x) / 2),
-        static_cast<int>((desktop.size.y - window.getSize().y) / 2)
-    ));
+	window.setPosition(
+		sf::Vector2i(
+			(desktop.width - window.getSize().x)/2,
+			(desktop.height - window.getSize().y)/2
+		)
+	);
 
     // --- LOAD BUNDLED ICON DIRECTLY FROM EXECUTABLE MEMORY ---
     sf::Image icon;
-    if (loadIconFromResource(icon)) {
-        window.setIcon(icon.getSize(), icon.getPixelsPtr());
-    } else {
+	if(loadAppIcon(icon))
+	{
+		window.setIcon(
+			icon.getSize().x,
+			icon.getSize().y,
+			icon.getPixelsPtr()
+		);
+	} else {
         std::cerr << "Warning: Could not load bundled PNG icon from resources\n";
     }
 
@@ -422,10 +382,18 @@ int main() {
     sf::Clock autoScanClock;
 
     while (window.isOpen()) {
-        while (const std::optional event = window.pollEvent()) {
-            ImGui::SFML::ProcessEvent(window, *event);
-            if (event->is<sf::Event::Closed>()) window.close();
-        }
+        sf::Event event;
+		while(window.pollEvent(event))
+		{
+			ImGui::SFML::ProcessEvent(
+				window,
+				event
+			);
+
+
+			if(event.type == sf::Event::Closed)
+				window.close();
+		}
 
         // Auto rescan
         if (setupDone && autoScanClock.getElapsedTime().asSeconds() >= AUTO_SCAN_INTERVAL) {

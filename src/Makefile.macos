@@ -40,6 +40,9 @@ $(TARGET): $(OBJS)
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
+	
+%.o: %.mm
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 setup:
 	mkdir -p $(BUILD_DIR)

@@ -19,12 +19,12 @@
 #include <taglib/tfile.h>
 #include <taglib/tfilestream.h>
 #include <taglib/tbytevector.h>
-#include <taglib/flacpicture.h>
-#include <shobjidl.h> // Required for modern Windows dialogs
+#include <taglib/flacpicture.h> // Required for modern Windows dialogs
 #include <iostream>
 #include <algorithm>
 #include <windows.h> // Required for conversion helper
 
+#ifdef _WIN32
 
 // Helper function to convert UTF-8 (std::string) to UTF-16 (std::wstring)
 std::wstring utf8ToUtf16(const std::string& utf8Str) {
@@ -34,6 +34,16 @@ std::wstring utf8ToUtf16(const std::string& utf8Str) {
     MultiByteToWideChar(CP_UTF8, 0, &utf8Str[0], (int)utf8Str.size(), &wstrTo[0], size_needed);
     return wstrTo;
 }
+
+std::wstring utf8ToUtf16(const std::string& utf8Str)
+{
+    return std::wstring(
+        utf8Str.begin(),
+        utf8Str.end()
+    );
+}
+
+#endif
 
 
 // Windows-specific headers to extract the embedded resource

@@ -1,6 +1,7 @@
-CXX = g++
+CXX = clang
 
 CXXFLAGS = -I. -DSFML_STATIC -DIMGUI_SFML_STATIC -DTAGLIB_STATIC -O2
+
 LDFLAGS = \
 -lsfml-graphics \
 -lsfml-window \
@@ -11,6 +12,34 @@ LDFLAGS = \
 -framework Cocoa \
 -framework IOKit \
 -framework CoreFoundation
+
 SRCS = mishplay.cpp visualizer.cpp imgui.cpp imgui_draw.cpp imgui_widgets.cpp imgui_tables.cpp imgui-SFML.cpp
-TARGET = $(BUILD_DIR)/mishplayer
+
 OBJS = $(SRCS:.cpp=.o)
+
+BUILD_DIR = builds
+
+TARGET = $(BUILD_DIR)/mishplayer
+
+.PHONY: all build clean setup
+
+all: build
+
+build: setup $(TARGET)
+	@echo "------------------------------"
+	@echo "Successfully compiled: $(TARGET)"
+	@echo "------------------------------"
+
+$(TARGET): $(OBJS)
+	$(CXX) $(OBJS) -o $(TARGET) $(LDFLAGS)
+
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+setup:
+	mkdir -p $(BUILD_DIR)
+
+clean:
+	rm -f *.o
+	rm -rf $(BUILD_DIR)
+	@echo "Cleaned build files"

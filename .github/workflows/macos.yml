@@ -31,7 +31,7 @@ jobs:
           make clean
           make -f Makefile.macos ARCHS="-arch arm64"
 
-          mv builds/mishplayer builds/mishplayer-arm64.bin
+          mv builds/mishplayer-arm64 builds/mishplayer-arm64.bin
 
 
       #

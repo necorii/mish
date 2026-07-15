@@ -3,6 +3,8 @@
 #include "platform.h"
 #include <windows.h>
 #include <shobjidl.h>
+#include <windows.h>
+#include <SFML/Graphics.hpp>
 
 
 std::string openFolderDialog()
@@ -74,10 +76,13 @@ std::string openFolderDialog()
 }
 
 
-bool loadAppIcon(sf::Image&)
+bool loadAppIcon(sf::Image& icon)
 {
+    if (icon.loadFromFile("mishicon.png"))
+    {
+        return true;
+    }
+
     return false;
 }
-
-
 #endif

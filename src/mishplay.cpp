@@ -324,6 +324,16 @@ int main() {
 		"mish"
 	);
     window.setFramerateLimit(60);
+	
+	// --- LOAD BUNDLED ICON DIRECTLY FROM EXECUTABLE MEMORY ---
+    sf::Image icon;
+
+	if (loadAppIcon(icon))
+	{
+		window.setIcon(icon);
+	} else {
+        std::cerr << "Warning: Could not load bundled PNG icon from resources\n";
+    }
 
     // Center the window on the desktop monitor screen
     sf::VideoMode desktop = sf::VideoMode::getDesktopMode();
@@ -331,15 +341,6 @@ int main() {
 		static_cast<int>((desktop.size.x - window.getSize().x) / 2),
 		static_cast<int>((desktop.size.y - window.getSize().y) / 2)
 	));
-
-    // --- LOAD BUNDLED ICON DIRECTLY FROM EXECUTABLE MEMORY ---
-    sf::Image icon;
-	if(loadAppIcon(icon))
-	{
-		window.setIcon(icon);
-	} else {
-        std::cerr << "Warning: Could not load bundled PNG icon from resources\n";
-    }
 
     if (!ImGui::SFML::Init(window)) {
         std::cerr << "Failed to initialize ImGui-SFML\n";

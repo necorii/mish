@@ -17,25 +17,26 @@ jobs:
 
 
       #
-      # ARM64 build
+      # ARM64
       #
 
       - name: Install ARM64 dependencies
         run: |
-          brew install sfml taglib
+          arch -arm64 brew install sfml taglib
 
 
       - name: Build ARM64
         working-directory: src
         run: |
           make clean
-          make -f Makefile.macos ARCHS="-arch arm64"
+          make -f Makefile.macos ARCHS="-arch arm64" BREW_PREFIX=/opt/homebrew
 
-          mv builds/mishplayer-arm64 builds/mishplayer-arm64.bin
+          mv builds/mishplayer builds/mishplayer-arm64.bin
+
 
 
       #
-      # Intel build
+      # Intel
       #
 
       - name: Install Rosetta
@@ -54,15 +55,15 @@ jobs:
           arch -x86_64 /usr/local/bin/brew install sfml taglib
 
 
+
       - name: Build x86_64
         working-directory: src
         run: |
-          export PATH="/usr/local/bin:$PATH"
-
           make clean
-          make -f Makefile.macos ARCHS="-arch x86_64"
+          make -f Makefile.macos ARCHS="-arch x86_64" BREW_PREFIX=/usr/local
 
           mv builds/mishplayer builds/mishplayer-x86_64.bin
+
 
 
       #
@@ -79,15 +80,69 @@ jobs:
             -output builds/mishplayer
 
 
-      - name: Verify Universal Binary
+
+      - name: Verify executable
         working-directory: src
         run: |
           file builds/mishplayer
           lipo -info builds/mishplayer
 
 
+
       #
-      # Create .app bundle
+      # Universal libraries
+      #
+
+      - name: Create Universal dylibs
+        run: |
+
+          mkdir -p universal-libs
+
+
+          lipo \
+            /opt/homebrew/lib/libsfml-graphics.dylib \
+            /usr/local/lib/libsfml-graphics.dylib \
+            -create \
+            -output universal-libs/libsfml-graphics.dylib
+
+
+          lipo \
+            /opt/homebrew/lib/libsfml-window.dylib \
+            /usr/local/lib/libsfml-window.dylib \
+            -create \
+            -output universal-libs/libsfml-window.dylib
+
+
+          lipo \
+            /opt/homebrew/lib/libsfml-audio.dylib \
+            /usr/local/lib/libsfml-audio.dylib \
+            -create \
+            -output universal-libs/libsfml-audio.dylib
+
+
+          lipo \
+            /opt/homebrew/lib/libsfml-system.dylib \
+            /usr/local/lib/libsfml-system.dylib \
+            -create \
+            -output universal-libs/libsfml-system.dylib
+
+
+          lipo \
+            /opt/homebrew/lib/libtag.dylib \
+            /usr/local/lib/libtag.dylib \
+            -create \
+            -output universal-libs/libtag.dylib
+
+
+
+      - name: Verify dylibs
+        run: |
+          file universal-libs/*.dylib
+
+
+
+      #
+      # Create .app
       #
 
       - name: Create App Bundle
@@ -102,63 +157,54 @@ jobs:
           release/MishPlayer.app/Contents/MacOS/
 
 
-          #
-          # Bundle libraries
-          #
 
-          cp /opt/homebrew/lib/libsfml-*.dylib \
+          cp universal-libs/*.dylib \
           release/MishPlayer.app/Contents/Frameworks/
 
 
-          cp /opt/homebrew/lib/libtag.dylib \
-          release/MishPlayer.app/Contents/Frameworks/
-
-
-          #
-          # Assets
-          #
 
           cp -r assets/* \
           release/MishPlayer.app/Contents/Resources/
 
 
-          #
-          # Info.plist
-          #
 
           cat > release/MishPlayer.app/Contents/Info.plist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-          "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<?xml version="1.0" encoding="UTF-8"?>
 
-          <plist version="1.0">
-          <dict>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+"http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 
-              <key>CFBundleName</key>
-              <string>Mish Player</string>
+<plist version="1.0">
 
-              <key>CFBundleDisplayName</key>
-              <string>Mish Player</string>
+<dict>
 
-              <key>CFBundleIdentifier</key>
-              <string>com.mish.player</string>
+    <key>CFBundleName</key>
+    <string>Mish Player</string>
 
-              <key>CFBundleExecutable</key>
-              <string>mishplayer</string>
+    <key>CFBundleDisplayName</key>
+    <string>Mish Player</string>
 
-              <key>CFBundlePackageType</key>
-              <string>APPL</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.mish.player</string>
 
-              <key>LSMinimumSystemVersion</key>
-              <string>11.0</string>
+    <key>CFBundleExecutable</key>
+    <string>mishplayer</string>
 
-          </dict>
-          </plist>
-          EOF
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+
+    <key>LSMinimumSystemVersion</key>
+    <string>11.0</string>
+
+</dict>
+
+</plist>
+EOF
+
 
 
       #
-      # Fix library lookup
+      # Fix dylib lookup
       #
 
       - name: Fix dylib paths
@@ -170,9 +216,18 @@ jobs:
           release/MishPlayer.app/Contents/MacOS/mishplayer
 
 
+          for lib in release/MishPlayer.app/Contents/Frameworks/*.dylib
+          do
+            install_name_tool \
+            -id \
+            "@rpath/$(basename $lib)" \
+            "$lib"
+          done
+
+
 
       #
-      # Inspect
+      # Final check
       #
 
       - name: Verify App

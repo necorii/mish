@@ -11,40 +11,44 @@ jobs:
     runs-on: macos-latest
 
     steps:
+
       - name: Checkout source
         uses: actions/checkout@v4
 
 
-      # ARM64 dependencies (Apple Silicon Homebrew)
+      #
+      # ARM64 build
+      #
+
       - name: Install ARM64 dependencies
         run: |
           brew install sfml taglib
 
 
-      # Build Apple Silicon version
       - name: Build ARM64
         working-directory: src
         run: |
           make clean
-          make -f Makefile.macos ARCH=arm64
+          make -f Makefile.macos ARCHS="-arch arm64"
 
-          mv builds/mishplayer-arm64 builds/mishplayer-arm64.bin
+          mv builds/mishplayer builds/mishplayer-arm64.bin
 
 
-      # Intel Macs require Rosetta
+      #
+      # Intel build
+      #
+
       - name: Install Rosetta
         run: |
           sudo softwareupdate --install-rosetta --agree-to-license
 
 
-      # Install Intel Homebrew
       - name: Install Intel Homebrew
         run: |
           arch -x86_64 /bin/bash -c \
           "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 
-      # Build Intel version
       - name: Install Intel dependencies
         run: |
           arch -x86_64 /usr/local/bin/brew install sfml taglib
@@ -56,20 +60,23 @@ jobs:
           export PATH="/usr/local/bin:$PATH"
 
           make clean
-          make -f Makefile.macos ARCH=x86_64 BREW_PREFIX=/usr/local
+          make -f Makefile.macos ARCHS="-arch x86_64"
 
-          mv builds/mishplayer-x86_64 builds/mishplayer-x86_64.bin
+          mv builds/mishplayer builds/mishplayer-x86_64.bin
 
 
-      # Combine both architectures
+      #
+      # Universal executable
+      #
+
       - name: Create Universal Binary
         working-directory: src
         run: |
           lipo \
-          -create \
-          builds/mishplayer-arm64.bin \
-          builds/mishplayer-x86_64.bin \
-          -output builds/mishplayer
+            -create \
+            builds/mishplayer-arm64.bin \
+            builds/mishplayer-x86_64.bin \
+            -output builds/mishplayer
 
 
       - name: Verify Universal Binary
@@ -79,18 +86,111 @@ jobs:
           lipo -info builds/mishplayer
 
 
-      # Package release
-      - name: Package
+      #
+      # Create .app bundle
+      #
+
+      - name: Create App Bundle
         run: |
-          mkdir -p release/assets
 
-          cp src/builds/mishplayer release/
+          mkdir -p release/MishPlayer.app/Contents/MacOS
+          mkdir -p release/MishPlayer.app/Contents/Frameworks
+          mkdir -p release/MishPlayer.app/Contents/Resources
 
-          cp -r assets/* release/assets/
 
+          cp src/builds/mishplayer \
+          release/MishPlayer.app/Contents/MacOS/
+
+
+          #
+          # Bundle libraries
+          #
+
+          cp /opt/homebrew/lib/libsfml-*.dylib \
+          release/MishPlayer.app/Contents/Frameworks/
+
+
+          cp /opt/homebrew/lib/libtag.dylib \
+          release/MishPlayer.app/Contents/Frameworks/
+
+
+          #
+          # Assets
+          #
+
+          cp -r assets/* \
+          release/MishPlayer.app/Contents/Resources/
+
+
+          #
+          # Info.plist
+          #
+
+          cat > release/MishPlayer.app/Contents/Info.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+          "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+
+          <plist version="1.0">
+          <dict>
+
+              <key>CFBundleName</key>
+              <string>Mish Player</string>
+
+              <key>CFBundleDisplayName</key>
+              <string>Mish Player</string>
+
+              <key>CFBundleIdentifier</key>
+              <string>com.mish.player</string>
+
+              <key>CFBundleExecutable</key>
+              <string>mishplayer</string>
+
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+
+              <key>LSMinimumSystemVersion</key>
+              <string>11.0</string>
+
+          </dict>
+          </plist>
+          EOF
+
+
+      #
+      # Fix library lookup
+      #
+
+      - name: Fix dylib paths
+        run: |
+
+          install_name_tool \
+          -add_rpath \
+          "@executable_path/../Frameworks" \
+          release/MishPlayer.app/Contents/MacOS/mishplayer
+
+
+
+      #
+      # Inspect
+      #
+
+      - name: Verify App
+        run: |
+
+          file release/MishPlayer.app/Contents/MacOS/mishplayer
+
+          otool -L \
+          release/MishPlayer.app/Contents/MacOS/mishplayer
+
+
+
+      #
+      # Upload
+      #
 
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:
-          name: mish-macos-universal
+          name: mish-macos-universal-app
           path: release/

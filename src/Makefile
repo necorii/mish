@@ -12,7 +12,7 @@ LDFLAGS = -static -static-libgcc -static-libstdc++ \
           -ltag -lz -mwindows
 		  
 # Source Files
-SRCS = mishplay.cpp visualizer.cpp imgui.cpp imgui_draw.cpp imgui_widgets.cpp imgui_tables.cpp imgui-SFML.cpp
+SRCS = mishplay.cpp visualizer.cpp imgui.cpp imgui_draw.cpp imgui_widgets.cpp imgui_tables.cpp imgui-SFML.cpp platform-win.cpp
 OBJS = $(SRCS:.cpp=.o) resource.o
 
 # Output Directory

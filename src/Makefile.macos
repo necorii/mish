@@ -1,6 +1,10 @@
-CXX = clang
+CXX = clang++
 
-CXXFLAGS = -I. -DSFML_STATIC -DIMGUI_SFML_STATIC -DTAGLIB_STATIC -O2
+CXXFLAGS = -I. \
+-I/opt/homebrew/include \
+-DIMGUI_SFML_STATIC \
+-DTAGLIB_STATIC \
+-O2
 
 LDFLAGS = \
 -lsfml-graphics \

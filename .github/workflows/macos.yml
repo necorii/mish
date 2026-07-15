@@ -15,7 +15,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install sfml taglib
+          brew install sfml@2 taglib
+          brew link sfml@2 --force
 
       - name: Build mish
         working-directory: src

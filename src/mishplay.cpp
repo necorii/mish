@@ -319,27 +319,24 @@ std::vector<Track> scanMusicFolder(const std::string& folderPath) {
     return playlist;
 }
 int main() {
-    sf::RenderWindow window(sf::VideoMode(1024,768), "mish");
+    sf::RenderWindow window(
+		sf::VideoMode(sf::Vector2u(1024, 768)),
+		"mish"
+	);
     window.setFramerateLimit(60);
 
     // Center the window on the desktop monitor screen
     sf::VideoMode desktop = sf::VideoMode::getDesktopMode();
-	window.setPosition(
-		sf::Vector2i(
-			(desktop.width - window.getSize().x)/2,
-			(desktop.height - window.getSize().y)/2
-		)
-	);
+	window.setPosition(sf::Vector2i(
+		static_cast<int>((desktop.size.x - window.getSize().x) / 2),
+		static_cast<int>((desktop.size.y - window.getSize().y) / 2)
+	));
 
     // --- LOAD BUNDLED ICON DIRECTLY FROM EXECUTABLE MEMORY ---
     sf::Image icon;
 	if(loadAppIcon(icon))
 	{
-		window.setIcon(
-			icon.getSize().x,
-			icon.getSize().y,
-			icon.getPixelsPtr()
-		);
+		window.setIcon(icon);
 	} else {
         std::cerr << "Warning: Could not load bundled PNG icon from resources\n";
     }
@@ -382,17 +379,14 @@ int main() {
     sf::Clock autoScanClock;
 
     while (window.isOpen()) {
-        sf::Event event;
-		while(window.pollEvent(event))
+		while (auto event = window.pollEvent())
 		{
-			ImGui::SFML::ProcessEvent(
-				window,
-				event
-			);
+			ImGui::SFML::ProcessEvent(window, *event);
 
-
-			if(event.type == sf::Event::Closed)
+			if (event->is<sf::Event::Closed>())
+			{
 				window.close();
+			}
 		}
 
         // Auto rescan

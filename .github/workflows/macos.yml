@@ -169,39 +169,37 @@ jobs:
 
 
           cat > release/MishPlayer.app/Contents/Info.plist <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
+            <?xml version="1.0" encoding="UTF-8"?>
 
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-"http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+            "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 
-<plist version="1.0">
+            <plist version="1.0">
 
-<dict>
+            <dict>
 
-    <key>CFBundleName</key>
-    <string>Mish Player</string>
+                <key>CFBundleName</key>
+                <string>Mish Player</string>
 
-    <key>CFBundleDisplayName</key>
-    <string>Mish Player</string>
+                <key>CFBundleDisplayName</key>
+                <string>Mish Player</string>
 
-    <key>CFBundleIdentifier</key>
-    <string>com.mish.player</string>
+                <key>CFBundleIdentifier</key>
+                <string>com.mish.player</string>
 
-    <key>CFBundleExecutable</key>
-    <string>mishplayer</string>
+                <key>CFBundleExecutable</key>
+                <string>mishplayer</string>
 
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
+                <key>CFBundlePackageType</key>
+                <string>APPL</string>
 
-    <key>LSMinimumSystemVersion</key>
-    <string>11.0</string>
+                <key>LSMinimumSystemVersion</key>
+                <string>11.0</string>
 
-</dict>
+            </dict>
 
-</plist>
-EOF
-
-
+            </plist>
+            EOF
 
       #
       # Fix dylib lookup

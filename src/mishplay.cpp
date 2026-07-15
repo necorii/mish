@@ -22,9 +22,9 @@
 #include <taglib/flacpicture.h> // Required for modern Windows dialogs
 #include <iostream>
 #include <algorithm>
-#include <windows.h> // Required for conversion helper
 
 #ifdef _WIN32
+#include <windows.h> // Required for conversion helper
 
 // Helper function to convert UTF-8 (std::string) to UTF-16 (std::wstring)
 std::wstring utf8ToUtf16(const std::string& utf8Str) {

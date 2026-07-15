@@ -327,11 +327,10 @@ int main() {
 	
 	// --- LOAD BUNDLED ICON DIRECTLY FROM EXECUTABLE MEMORY ---
     sf::Image icon;
-
-	if (loadAppIcon(icon))
-	{
-		window.setIcon(icon);
-	} else {
+    if (loadAppIcon(icon))
+    {
+        window.setIcon(icon);
+    } else {
         std::cerr << "Warning: Could not load bundled PNG icon from resources\n";
     }
 

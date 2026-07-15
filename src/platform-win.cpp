@@ -1,10 +1,43 @@
 #ifdef _WIN32
 
 #include "platform.h"
-#include <windows.h>
 #include <shobjidl.h>
 #include <windows.h>
 #include <SFML/Graphics.hpp>
+#include <iostream>
+
+bool loadAppIcon(sf::Image& icon) {
+    // 1. Force the Taskbar and Alt-Tab switcher to use your native .ico (IDI_ICON = 1)
+    // GetActiveWindow() gets the HWND of our newly spawned SFML window
+    HWND hwnd = GetActiveWindow(); 
+    if (hwnd) {
+        HICON hIconBig = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(1), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE);
+        HICON hIconSmall = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(1), IMAGE_ICON, 16, 16, 0);
+        
+        if (hIconBig) {
+            SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIconBig);
+        }
+        if (hIconSmall) {
+            SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIconSmall);
+        }
+    }
+
+    // 2. Load the PNG resource (ID: 101) for SFML's decoration
+    HRSRC hRes = FindResource(NULL, MAKEINTRESOURCE(101), RT_RCDATA);
+    if (!hRes) return false;
+
+    HGLOBAL hGlob = LoadResource(NULL, hRes);
+    if (!hGlob) return false;
+
+    DWORD size = SizeofResource(NULL, hRes);
+    const void* data = LockResource(hGlob);
+
+    if (data && size > 0) {
+        return icon.loadFromMemory(data, size);
+    }
+
+    return false;
+}
 
 
 std::string openFolderDialog()
@@ -73,16 +106,5 @@ std::string openFolderDialog()
 
 
     return result;
-}
-
-
-bool loadAppIcon(sf::Image& icon)
-{
-    if (icon.loadFromFile("mishicon.png"))
-    {
-        return true;
-    }
-
-    return false;
 }
 #endif

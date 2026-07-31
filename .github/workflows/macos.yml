@@ -22,21 +22,14 @@ jobs:
 
       - name: Install ARM64 dependencies
         run: |
-          # Prefer an explicit Homebrew path if present, fall back to brew in PATH
-          ARM_BREW="$(command -v /opt/homebrew/bin/brew || command -v brew)"
-          echo "Using ARM brew: $ARM_BREW"
-          "$ARM_BREW" install sfml taglib
+          /opt/homebrew/bin/brew install sfml taglib
 
 
       - name: Build ARM64
         working-directory: src
         run: |
           make clean
-          # Use detected ARM brew prefix when possible
-          ARM_BREW="$(command -v /opt/homebrew/bin/brew || command -v brew)"
-          ARM_PREFIX="$($ARM_BREW --prefix 2>/dev/null || echo /opt/homebrew)"
-          echo "ARM_PREFIX=$ARM_PREFIX"
-          make -f Makefile.macos ARCH=arm64 BREW_PREFIX="$ARM_PREFIX"
+          make -f Makefile.macos ARCH=arm64 BREW_PREFIX=/opt/homebrew
           mv builds/mishplayer-arm64 builds/mishplayer-arm64.bin
 
 
@@ -52,29 +45,23 @@ jobs:
 
       - name: Install Intel Homebrew
         run: |
-          # Install Intel Homebrew under Rosetta; installer will place it under /usr/local on Intel
           arch -x86_64 /bin/bash -c \
           "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 
       - name: Install Intel dependencies
         run: |
-          # Use arch -x86_64 to run the Intel brew and install packages for x86_64
-          INTEL_BREW="$(arch -x86_64 command -v /usr/local/bin/brew || arch -x86_64 command -v brew)"
-          echo "Using Intel brew: $INTEL_BREW"
-          arch -x86_64 "$INTEL_BREW" install sfml taglib
+          arch -x86_64 /usr/local/bin/brew install sfml taglib
 
 
-      - name: Build x86_64 (under Rosetta)
+
+      - name: Build x86_64
         working-directory: src
         run: |
-          # Build the x86_64 binary under Rosetta so it links against the Intel Homebrew libs
-          arch -x86_64 make clean
-          INTEL_BREW="$(arch -x86_64 command -v /usr/local/bin/brew || arch -x86_64 command -v brew)"
-          INTEL_PREFIX="$(arch -x86_64 $INTEL_BREW --prefix 2>/dev/null || echo /usr/local)"
-          echo "INTEL_PREFIX=$INTEL_PREFIX"
-          arch -x86_64 make -f Makefile.macos ARCH=x86_64 BREW_PREFIX="$INTEL_PREFIX"
+          make clean
+          make -f Makefile.macos ARCH=x86_64 BREW_PREFIX=/usr/local
           mv builds/mishplayer-x86_64 builds/mishplayer-x86_64.bin
+
 
 
       #
@@ -91,6 +78,7 @@ jobs:
             -output builds/mishplayer
 
 
+
       - name: Verify executable
         working-directory: src
         run: |
@@ -98,97 +86,36 @@ jobs:
           lipo -info builds/mishplayer
 
 
+
       #
       # Universal dylibs
       #
 
-      - name: Diagnostic: list brew lib dirs
-        run: |
-          ARM_BREW="$(command -v /opt/homebrew/bin/brew || command -v brew)"
-          ARM_PREFIX="$($ARM_BREW --prefix 2>/dev/null || echo /opt/homebrew)"
-          echo "ARM_PREFIX=$ARM_PREFIX"
-          ls -la "$ARM_PREFIX/lib" || true
-
-          INTEL_BREW="$(arch -x86_64 command -v /usr/local/bin/brew || arch -x86_64 command -v brew)"
-          INTEL_PREFIX="$(arch -x86_64 $INTEL_BREW --prefix 2>/dev/null || echo /usr/local)"
-          echo "INTEL_PREFIX=$INTEL_PREFIX"
-          arch -x86_64 ls -la "$INTEL_PREFIX/lib" || true
-
-
       - name: Create Universal dylibs
         run: |
-          set -euo pipefail
-          ARM_BREW="$(command -v /opt/homebrew/bin/brew || command -v brew)"
-          ARM_PREFIX="$($ARM_BREW --prefix 2>/dev/null || echo /opt/homebrew)"
-          INTEL_BREW="$(arch -x86_64 command -v /usr/local/bin/brew || arch -x86_64 command -v brew)"
-          INTEL_PREFIX="$(arch -x86_64 $INTEL_BREW --prefix 2>/dev/null || echo /usr/local)"
-
-          ARM_LIBDIR="$ARM_PREFIX/lib"
-          INTEL_LIBDIR="$INTEL_PREFIX/lib"
-
           mkdir -p universal-libs
-
-          # Patterns to search for — match unversioned and versioned dylibs for SFML and taglib
-          patterns=( "libsfml*.dylib" "libtag*.dylib" )
-
-          for p in "${patterns[@]}"; do
-            for armfile in "$ARM_LIBDIR"/$p; do
-              [ -e "$armfile" ] || continue
-
-              name=$(basename "$armfile")
-
-              # Find an Intel counterpart. Prefer same basename, then try fuzzy matches.
-              intelfile="$INTEL_LIBDIR/$name"
-              if [ ! -f "$intelfile" ]; then
-                # try to find a matching name by prefix (handles versioned names)
-                matches=( $(arch -x86_64 ls "$INTEL_LIBDIR"/*${name%%.*}*.dylib 2>/dev/null || true) )
-                if [ ${#matches[@]} -gt 0 ]; then
-                  intelfile="${matches[0]}"
-                fi
+          
+          # Catch SFML, Taglib, plus all audio dependencies (vorbis, ogg, flac, opus)
+          for libpath in /opt/homebrew/lib/libsfml-*.3.0.dylib /opt/homebrew/lib/libtag.*.dylib /opt/homebrew/lib/libvorbis*.dylib /opt/homebrew/lib/libogg*.dylib /opt/homebrew/lib/libflac*.dylib /opt/homebrew/lib/libopus*.dylib
+          do
+            if [ -f "$libpath" ]; then
+              libname=$(basename "$libpath")
+              if [ -f "/opt/homebrew/lib/$libname" ] && [ -f "/usr/local/lib/$libname" ]; then
+                lipo \
+                  /opt/homebrew/lib/$libname \
+                  /usr/local/lib/$libname \
+                  -create \
+                  -output universal-libs/$libname
               fi
-
-              if [ ! -f "$intelfile" ]; then
-                echo "Skipping $name — no Intel counterpart found in $INTEL_LIBDIR"
-                continue
-              fi
-
-              # Resolve symlinks to actual files; prefer real paths for lipo
-              armreal="$(realpath "$armfile" 2>/dev/null || echo "$armfile")"
-              intelreal="$(arch -x86_64 realpath "$intelfile" 2>/dev/null || echo "$intelfile")"
-
-              echo "Found pair:"
-              echo "  ARM:   $armreal"
-              echo "  INTEL: $intelreal"
-
-              # Show architectures as diagnostics
-              file "$armreal" || true
-              file "$intelreal" || true
-              lipo -info "$armreal" || true
-              arch -x86_64 lipo -info "$intelreal" || true
-
-              # Create universal if possible
-              out="universal-libs/$name"
-              if lipo -create "$armreal" "$intelreal" -output "$out" 2>/dev/null; then
-                echo "Created $out"
-              else
-                echo "lipo failed for $name; attempting to copy intel/arm to keep build moving"
-                # As a fallback, if one side is universal already, prefer it; otherwise skip
-                if lipo -info "$armreal" 2>/dev/null | grep -q "Non-fat" && lipo -info "$armreal" 2>/dev/null | grep -q "arm64"; then
-                  cp "$armreal" "$out" || true
-                elif arch -x86_64 lipo -info "$intelreal" 2>/dev/null | grep -q "Non-fat" && arch -x86_64 lipo -info "$intelreal" 2>/dev/null | grep -q "i386\|x86_64"; then
-                  cp "$intelreal" "$out" || true
-                else
-                  echo "Could not produce universal for $name; skipping"
-                fi
-              fi
-
-            done
+            fi
           done
+
 
 
       - name: Verify dylibs
         run: |
-          file universal-libs/*.dylib || true
+          file universal-libs/*.dylib
+
 
 
       #
@@ -205,10 +132,10 @@ jobs:
           release/MishPlayer.app/Contents/MacOS/mishplayer
 
           cp universal-libs/*.dylib \
-          release/MishPlayer.app/Contents/Frameworks/ || true
+          release/MishPlayer.app/Contents/Frameworks/
 
           cp -r assets/* \
-          release/MishPlayer.app/Contents/Resources/ || true
+          release/MishPlayer.app/Contents/Resources/
 
           cat > release/MishPlayer.app/Contents/Info.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
@@ -227,10 +154,11 @@ jobs:
           <key>CFBundlePackageType</key>
           <string>APPL</string>
           <key>LSMinimumSystemVersion</key>
-          <string>10.15</string>
+          <string>11.0</string>
           </dict>
           </plist>
           EOF
+
 
 
       #
@@ -251,14 +179,14 @@ jobs:
             install_name_tool -id "@rpath/$LIBNAME" "$lib"
           done
 
-          # Fix references in the main binary dynamically based on actual otool output
+          # Fix references in the main binary dynamically
           for old_path in $(otool -L $APP/Contents/MacOS/mishplayer | grep -E 'opt/homebrew|usr/local' | awk '{print $1}')
           do
             LIBNAME=$(basename "$old_path")
             install_name_tool -change "$old_path" "@rpath/$LIBNAME" $APP/Contents/MacOS/mishplayer
           done
           
-          # Also fix inter-library references inside the dylibs themselves
+          # Fix inter-library references inside all dylibs (like sfml-audio -> vorbis)
           for lib in $APP/Contents/Frameworks/*.dylib
           do
             for old_path in $(otool -L "$lib" | grep -E 'opt/homebrew|usr/local' | awk '{print $1}')
@@ -269,19 +197,21 @@ jobs:
           done
 
 
+
       #
       # Verify everything
       #
 
       - name: Final verification
         run: |
-          file release/MishPlayer.app/Contents/MacOS/mishplayer || true
+          file release/MishPlayer.app/Contents/MacOS/mishplayer
           lipo -info \
-          release/MishPlayer.app/Contents/MacOS/mishplayer || true
+          release/MishPlayer.app/Contents/MacOS/mishplayer
           otool -L \
-          release/MishPlayer.app/Contents/MacOS/mishplayer || true
+          release/MishPlayer.app/Contents/MacOS/mishplayer
           otool -L \
-          release/MishPlayer.app/Contents/Frameworks/*.dylib || true
+          release/MishPlayer.app/Contents/Frameworks/*.dylib
+
 
 
       #
@@ -298,7 +228,7 @@ jobs:
       # Smoke test
       #
 
-      - name: Launch MishPlayer(we all suxk)
+      - name: Launch MishPlayer
         run: |
           APP=release/MishPlayer.app
           chmod +x \

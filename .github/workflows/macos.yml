@@ -30,7 +30,6 @@ jobs:
         run: |
           make clean
           make -f Makefile.macos ARCH=arm64 BREW_PREFIX=/opt/homebrew
-
           mv builds/mishplayer-arm64 builds/mishplayer-arm64.bin
 
 
@@ -61,7 +60,6 @@ jobs:
         run: |
           make clean
           make -f Makefile.macos ARCH=x86_64 BREW_PREFIX=/usr/local
-
           mv builds/mishplayer-x86_64 builds/mishplayer-x86_64.bin
 
 
@@ -95,31 +93,27 @@ jobs:
 
       - name: Create Universal dylibs
         run: |
-
           mkdir -p universal-libs
-
-
-          for lib in \
-          libsfml-graphics \
-          libsfml-window \
-          libsfml-audio \
-          libsfml-system \
-          libtag
+          
+          # Dynamically find all versioned dylibs from homebrew paths
+          for libpath in /opt/homebrew/lib/libsfml-*.3.0.dylib /opt/homebrew/lib/libtag.*.dylib /usr/local/lib/libsfml-*.3.0.dylib /usr/local/lib/libtag.*.dylib
           do
-
-            lipo \
-              /opt/homebrew/lib/$lib.dylib \
-              /usr/local/lib/$lib.dylib \
-              -create \
-              -output universal-libs/$lib.dylib
-
+            if [ -f "$libpath" ]; then
+              libname=$(basename "$libpath")
+              if [ -f "/opt/homebrew/lib/$libname" ] && [ -f "/usr/local/lib/$libname" ]; then
+                lipo \
+                  /opt/homebrew/lib/$libname \
+                  /usr/local/lib/$libname \
+                  -create \
+                  -output universal-libs/$libname
+              fi
+            fi
           done
 
 
 
       - name: Verify dylibs
         run: |
-
           file universal-libs/*.dylib
 
 
@@ -130,54 +124,40 @@ jobs:
 
       - name: Create App Bundle
         run: |
-
           mkdir -p release/MishPlayer.app/Contents/MacOS
           mkdir -p release/MishPlayer.app/Contents/Frameworks
           mkdir -p release/MishPlayer.app/Contents/Resources
 
-
           cp src/builds/mishplayer \
           release/MishPlayer.app/Contents/MacOS/mishplayer
-
 
           cp universal-libs/*.dylib \
           release/MishPlayer.app/Contents/Frameworks/
 
-
           cp -r assets/* \
           release/MishPlayer.app/Contents/Resources/
 
-
-
           cat > release/MishPlayer.app/Contents/Info.plist <<EOF
-            <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-            "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-
-            <plist version="1.0">
-            <dict>
-
-            <key>CFBundleName</key>
-            <string>Mish Player</string>
-
-            <key>CFBundleDisplayName</key>
-            <string>Mish Player</string>
-
-            <key>CFBundleIdentifier</key>
-            <string>com.mish.player</string>
-
-            <key>CFBundleExecutable</key>
-            <string>mishplayer</string>
-
-            <key>CFBundlePackageType</key>
-            <string>APPL</string>
-
-            <key>LSMinimumSystemVersion</key>
-            <string>11.0</string>
-
-            </dict>
-            </plist>
-            EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+          "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+          <key>CFBundleName</key>
+          <string>Mish Player</string>
+          <key>CFBundleDisplayName</key>
+          <string>Mish Player</string>
+          <key>CFBundleIdentifier</key>
+          <string>com.mish.player</string>
+          <key>CFBundleExecutable</key>
+          <string>mishplayer</string>
+          <key>CFBundlePackageType</key>
+          <string>APPL</string>
+          <key>LSMinimumSystemVersion</key>
+          <string>10.15</string>
+          </dict>
+          </plist>
+          EOF
 
 
 
@@ -199,12 +179,23 @@ jobs:
             install_name_tool -id "@rpath/$LIBNAME" "$lib"
           done
 
-          # Fix references in the main binary by reading what it's actually linked against
+          # Fix references in the main binary dynamically based on actual otool output
           for old_path in $(otool -L $APP/Contents/MacOS/mishplayer | grep -E 'opt/homebrew|usr/local' | awk '{print $1}')
           do
             LIBNAME=$(basename "$old_path")
             install_name_tool -change "$old_path" "@rpath/$LIBNAME" $APP/Contents/MacOS/mishplayer
           done
+          
+          # Also fix inter-library references inside the dylibs themselves
+          for lib in $APP/Contents/Frameworks/*.dylib
+          do
+            for old_path in $(otool -L "$lib" | grep -E 'opt/homebrew|usr/local' | awk '{print $1}')
+            do
+              LIBNAME=$(basename "$old_path")
+              install_name_tool -change "$old_path" "@rpath/$LIBNAME" "$lib"
+            done
+          done
+
 
 
       #
@@ -213,17 +204,11 @@ jobs:
 
       - name: Final verification
         run: |
-
           file release/MishPlayer.app/Contents/MacOS/mishplayer
-
           lipo -info \
           release/MishPlayer.app/Contents/MacOS/mishplayer
-
-
           otool -L \
           release/MishPlayer.app/Contents/MacOS/mishplayer
-
-
           otool -L \
           release/MishPlayer.app/Contents/Frameworks/*.dylib
 
@@ -245,27 +230,18 @@ jobs:
 
       - name: Launch MishPlayer
         run: |
-
           APP=release/MishPlayer.app
-
           chmod +x \
           $APP/Contents/MacOS/mishplayer
-
           echo "Launching..."
-
           $APP/Contents/MacOS/mishplayer &
-
           PID=$!
-
           sleep 5
-
           if ps -p $PID > /dev/null
           then
             echo "✅ MishPlayer is still running."
-
             kill $PID
           else
             echo "❌ MishPlayer exited unexpectedly."
-
             exit 1
           fi

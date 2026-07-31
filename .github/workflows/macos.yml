@@ -187,59 +187,24 @@ jobs:
 
       - name: Fix dylib paths
         run: |
-
-
           APP=release/MishPlayer.app
-
-
           install_name_tool \
           -add_rpath \
           "@executable_path/../Frameworks" \
           $APP/Contents/MacOS/mishplayer
-
-
-
+          
           for lib in $APP/Contents/Frameworks/*.dylib
           do
-
-            install_name_tool \
-            -id \
-            "@rpath/$(basename $lib)" \
-            "$lib"
-
-
-            install_name_tool \
-            -add_rpath \
-            "@loader_path" \
-            "$lib"
-
+            LIBNAME=$(basename "$lib")
+            install_name_tool -id "@rpath/$LIBNAME" "$lib"
           done
 
-
-
-          for lib in \
-          libsfml-graphics \
-          libsfml-window \
-          libsfml-audio \
-          libsfml-system \
-          libtag
+          # Fix references in the main binary by reading what it's actually linked against
+          for old_path in $(otool -L $APP/Contents/MacOS/mishplayer | grep -E 'opt/homebrew|usr/local' | awk '{print $1}')
           do
-
-            install_name_tool \
-            -change \
-            /opt/homebrew/lib/$lib.dylib \
-            @rpath/$lib.dylib \
-            $APP/Contents/MacOS/mishplayer
-
-
-            install_name_tool \
-            -change \
-            /usr/local/lib/$lib.dylib \
-            @rpath/$lib.dylib \
-            $APP/Contents/MacOS/mishplayer
-
+            LIBNAME=$(basename "$old_path")
+            install_name_tool -change "$old_path" "@rpath/$LIBNAME" $APP/Contents/MacOS/mishplayer
           done
-
 
 
       #

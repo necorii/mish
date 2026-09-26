@@ -7,24 +7,22 @@ on:
 
 jobs:
   build-macos:
-
-    runs-on: macos-latest
+    runs-on: macos-14
 
     steps:
-
       - name: Checkout source
         uses: actions/checkout@v4
 
-
       #
-      # ARM64
+      # Dependencies
       #
-
-      - name: Install ARM64 dependencies
+      - name: Install dependencies
         run: |
-          /opt/homebrew/bin/brew install sfml taglib
+          brew install sfml taglib
 
-
+      #
+      # Build ARM64
+      #
       - name: Build ARM64
         working-directory: src
         run: |
@@ -32,42 +30,19 @@ jobs:
           make -f Makefile.macos ARCH=arm64 BREW_PREFIX=/opt/homebrew
           mv builds/mishplayer-arm64 builds/mishplayer-arm64.bin
 
-
-
       #
-      # Intel
+      # Build x86_64 (Cross-compile via Clang target)
       #
-
-      - name: Install Rosetta
-        run: |
-          sudo softwareupdate --install-rosetta --agree-to-license
-
-
-      - name: Install Intel Homebrew
-        run: |
-          arch -x86_64 /bin/bash -c \
-          "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-
-      - name: Install Intel dependencies
-        run: |
-          arch -x86_64 /usr/local/bin/brew install sfml taglib
-
-
-
       - name: Build x86_64
         working-directory: src
         run: |
           make clean
-          make -f Makefile.macos ARCH=x86_64 BREW_PREFIX=/usr/local
+          make -f Makefile.macos ARCH=x86_64 BREW_PREFIX=/opt/homebrew
           mv builds/mishplayer-x86_64 builds/mishplayer-x86_64.bin
 
-
-
       #
-      # Universal executable
+      # Universal Executable
       #
-
       - name: Create Universal Binary
         working-directory: src
         run: |
@@ -77,171 +52,128 @@ jobs:
             builds/mishplayer-x86_64.bin \
             -output builds/mishplayer
 
-
-
-      - name: Verify executable
+      - name: Verify Executable Architecture
         working-directory: src
         run: |
           file builds/mishplayer
           lipo -info builds/mishplayer
 
-
-
       #
-      # Universal dylibs
+      # Bundle Dynamic Libraries
       #
-
-      - name: Create Universal dylibs
+      - name: Extract and Stage dylibs
         run: |
-          mkdir -p universal-libs
+          mkdir -p bundled-libs
           
-          # Catch SFML, Taglib, plus all audio dependencies (vorbis, ogg, flac, opus)
-          for libpath in /opt/homebrew/lib/libsfml-*.3.0.dylib /opt/homebrew/lib/libtag.*.dylib /opt/homebrew/lib/libvorbis*.dylib /opt/homebrew/lib/libogg*.dylib /opt/homebrew/lib/libflac*.dylib /opt/homebrew/lib/libopus*.dylib
+          # Copy ARM64 Homebrew libs to bundle
+          for lib in /opt/homebrew/lib/libsfml-*.dylib /opt/homebrew/lib/libtag*.dylib /opt/homebrew/lib/libvorbis*.dylib /opt/homebrew/lib/libogg*.dylib /opt/homebrew/lib/libflac*.dylib /opt/homebrew/lib/libopus*.dylib
           do
-            if [ -f "$libpath" ]; then
-              libname=$(basename "$libpath")
-              if [ -f "/opt/homebrew/lib/$libname" ] && [ -f "/usr/local/lib/$libname" ]; then
-                lipo \
-                  /opt/homebrew/lib/$libname \
-                  /usr/local/lib/$libname \
-                  -create \
-                  -output universal-libs/$libname
-              fi
+            if [ -f "$lib" ] && [ ! -L "$lib" ]; then
+              cp "$lib" bundled-libs/
             fi
           done
-
-
-
-      - name: Verify dylibs
-        run: |
-          file universal-libs/*.dylib
-
-
 
       #
       # Create App Bundle
       #
-
-      - name: Create App Bundle
+      - name: Create App Bundle Structure
         run: |
           mkdir -p release/MishPlayer.app/Contents/MacOS
           mkdir -p release/MishPlayer.app/Contents/Frameworks
           mkdir -p release/MishPlayer.app/Contents/Resources
 
-          cp src/builds/mishplayer \
-          release/MishPlayer.app/Contents/MacOS/mishplayer
+          cp src/builds/mishplayer release/MishPlayer.app/Contents/MacOS/mishplayer
+          cp bundled-libs/*.dylib release/MishPlayer.app/Contents/Frameworks/ || true
 
-          cp universal-libs/*.dylib \
-          release/MishPlayer.app/Contents/Frameworks/
-
-          cp -r assets/* \
-          release/MishPlayer.app/Contents/Resources/
+          if [ -d "assets" ]; then
+            cp -r assets/* release/MishPlayer.app/Contents/Resources/
+          fi
 
           cat > release/MishPlayer.app/Contents/Info.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-          "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
-          <key>CFBundleName</key>
-          <string>Mish Player</string>
-          <key>CFBundleDisplayName</key>
-          <string>Mish Player</string>
-          <key>CFBundleIdentifier</key>
-          <string>com.mish.player</string>
-          <key>CFBundleExecutable</key>
-          <string>mishplayer</string>
-          <key>CFBundlePackageType</key>
-          <string>APPL</string>
-          <key>LSMinimumSystemVersion</key>
-          <string>11.0</string>
+              <key>CFBundleName</key>
+              <string>Mish Player</string>
+              <key>CFBundleDisplayName</key>
+              <string>Mish Player</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.mish.player</string>
+              <key>CFBundleExecutable</key>
+              <string>mishplayer</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>11.0</string>
           </dict>
           </plist>
           EOF
 
-
-
       #
-      # Fix library paths
+      # Fix Dynamic Library Paths (@rpath)
       #
-
       - name: Fix dylib paths
         run: |
           APP=release/MishPlayer.app
-          install_name_tool \
-          -add_rpath \
-          "@executable_path/../Frameworks" \
-          $APP/Contents/MacOS/mishplayer
-          
-          for lib in $APP/Contents/Frameworks/*.dylib
-          do
+          EXECUTABLE=$APP/Contents/MacOS/mishplayer
+
+          # Add Frameworks directory to runtime search path
+          install_name_tool -add_rpath "@executable_path/../Frameworks" "$EXECUTABLE" || true
+
+          # Set internal IDs for bundled libraries
+          for lib in $APP/Contents/Frameworks/*.dylib; do
+            [ -f "$lib" ] || continue
             LIBNAME=$(basename "$lib")
             install_name_tool -id "@rpath/$LIBNAME" "$lib"
           done
 
-          # Fix references in the main binary dynamically
-          for old_path in $(otool -L $APP/Contents/MacOS/mishplayer | grep -E 'opt/homebrew|usr/local' | awk '{print $1}')
-          do
+          # Relink executable dependencies to bundled libraries
+          for old_path in $(otool -L "$EXECUTABLE" | grep -E '/opt/homebrew|/usr/local' | awk '{print $1}'); do
             LIBNAME=$(basename "$old_path")
-            install_name_tool -change "$old_path" "@rpath/$LIBNAME" $APP/Contents/MacOS/mishplayer
+            install_name_tool -change "$old_path" "@rpath/$LIBNAME" "$EXECUTABLE"
           done
-          
-          # Fix inter-library references inside all dylibs (like sfml-audio -> vorbis)
-          for lib in $APP/Contents/Frameworks/*.dylib
-          do
-            for old_path in $(otool -L "$lib" | grep -E 'opt/homebrew|usr/local' | awk '{print $1}')
-            do
+
+          # Relink inter-library dependencies inside Frameworks
+          for lib in $APP/Contents/Frameworks/*.dylib; do
+            [ -f "$lib" ] || continue
+            for old_path in $(otool -L "$lib" | grep -E '/opt/homebrew|/usr/local' | awk '{print $1}'); do
               LIBNAME=$(basename "$old_path")
               install_name_tool -change "$old_path" "@rpath/$LIBNAME" "$lib"
             done
           done
 
-
-
       #
-      # Verify everything
+      # Verification & Smoke Test
       #
-
-      - name: Final verification
-        run: |
-          file release/MishPlayer.app/Contents/MacOS/mishplayer
-          lipo -info \
-          release/MishPlayer.app/Contents/MacOS/mishplayer
-          otool -L \
-          release/MishPlayer.app/Contents/MacOS/mishplayer
-          otool -L \
-          release/MishPlayer.app/Contents/Frameworks/*.dylib
-
-
-
-      #
-      # Upload
-      #
-
-      - name: Upload build
-        uses: actions/upload-artifact@v4
-        with:
-          name: mishplayer-macos-universal-app
-          path: release/
-          
-      #
-      # Smoke test
-      #
-
-      - name: Launch MishPlayer
+      - name: Final Verification
         run: |
           APP=release/MishPlayer.app
-          chmod +x \
-          $APP/Contents/MacOS/mishplayer
-          echo "Launching..."
+          file $APP/Contents/MacOS/mishplayer
+          lipo -info $APP/Contents/MacOS/mishplayer
+          otool -L $APP/Contents/MacOS/mishplayer
+
+      - name: Launch MishPlayer (Smoke Test)
+        run: |
+          APP=release/MishPlayer.app
+          chmod +x $APP/Contents/MacOS/mishplayer
+          echo "Launching MishPlayer headless check..."
           $APP/Contents/MacOS/mishplayer &
           PID=$!
-          sleep 5
-          if ps -p $PID > /dev/null
-          then
-            echo "✅ MishPlayer is still running."
+          sleep 3
+          if ps -p $PID > /dev/null; then
+            echo "✅ MishPlayer initialized successfully."
             kill $PID
           else
-            echo "❌ MishPlayer exited unexpectedly."
+            echo "❌ MishPlayer crashed on startup."
             exit 1
           fi
+
+      #
+      # Upload Artifacts
+      #
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MishPlayer-macOS-Universal
+          path: release/

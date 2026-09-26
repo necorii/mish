@@ -12,6 +12,11 @@ public:
     void update(const sf::Sound& sound, const sf::SoundBuffer& buffer);
     void draw(sf::RenderWindow& window);
 
+    // Switch between full chaos mode and NCS-style calm mode
+    void setCalmMode(bool enabled);
+	void toggleCalmMode();
+	bool isCalmMode() const;
+
 private:
     unsigned int m_width;
     unsigned int m_height;
@@ -28,6 +33,9 @@ private:
     // Graphic shapes driven by FFT
     float m_rotationAngle;
     sf::VertexArray m_innerRing;
+
+    // Visualizer mode
+    bool m_calmMode = false;
 };
 
 #endif // VISUALIZER_H

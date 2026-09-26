@@ -1,0 +1,59 @@
+CXX = g++
+
+CXXFLAGS = -I. \
+           -O2 \
+           $(shell pkg-config --cflags sfml-graphics sfml-window sfml-system sfml-audio)
+
+LDFLAGS = \
+          -L/usr/local/lib \
+          -lsfml-graphics-s \
+          -lsfml-window-s \
+          -lsfml-audio-s \
+          -lsfml-system-s \
+          -ltag \
+          -lGL \
+          -pthread \
+          -lfreetype \
+          -lvorbis \
+          -lvorbisfile \
+          -lvorbisenc \
+          -lFLAC \
+          -logg \
+          -lz \
+          -ludev \
+          -lX11 \
+          -lXrandr \
+          -lXcursor \
+          -lXi \
+          -lXinerama
+
+
+SRCS = mishplay.cpp \
+       visualizer.cpp \
+       platform-linux.cpp \
+       imgui.cpp \
+       imgui_draw.cpp \
+       imgui_widgets.cpp \
+       imgui_tables.cpp \
+       imgui-SFML.cpp
+
+
+OBJS = $(SRCS:.cpp=.o)
+
+
+TARGET = mishplayer
+
+
+all: $(TARGET)
+
+
+$(TARGET): $(OBJS)
+	$(CXX) $(OBJS) -o $(TARGET) $(LDFLAGS)
+
+
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+
+clean:
+	rm -f *.o $(TARGET)

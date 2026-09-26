@@ -572,7 +572,13 @@ int main() {
                 }
             }
 			ImGui::SameLine();
-			
+            if (ImGui::Button(
+                visualizer.isCalmMode() ? "Visualizer: Calm" : "Visualizer: Portal"
+            ))
+            {
+                visualizer.toggleCalmMode();
+            }
+			ImGui::SameLine();
 			if (ImGui::Button("Force Scan")) {
 				std::string currentPlayingPath = "";
 

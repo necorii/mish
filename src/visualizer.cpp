@@ -38,7 +38,8 @@ Visualizer::Visualizer(unsigned int width, unsigned int height)
       m_primaryBuffer({width, height}), 
       m_feedbackBuffer({width, height}),
       m_feedbackSprite(m_feedbackBuffer.getTexture()), // Now safely binds the texture!
-      m_rotationAngle(0.0f) {
+      m_rotationAngle(0.0f),
+	  m_calmMode(false) {
     
     m_magnitudes.resize(512, 0.0f); // Map to 512 frequency bars
 
@@ -47,6 +48,14 @@ Visualizer::Visualizer(unsigned int width, unsigned int height)
 
     // Dynamic central ring driven by audio peaks
     m_innerRing = sf::VertexArray(sf::PrimitiveType::TriangleFan, 362); 
+}
+
+void Visualizer::toggleCalmMode()
+{
+    m_calmMode = !m_calmMode;
+
+    m_feedbackBuffer.clear(sf::Color::Black);
+    m_feedbackBuffer.display();
 }
 
 void Visualizer::update(const sf::Sound& sound, const sf::SoundBuffer& buffer) {
@@ -126,6 +135,96 @@ void Visualizer::update(const sf::Sound& sound, const sf::SoundBuffer& buffer) {
             m_magnitudes[i] += (0.0f - m_magnitudes[i]) * 0.08f;
         }
     }
+    
+	if (m_calmMode)
+{
+    sf::Vector2f center(
+        m_width / 2.0f,
+        m_height / 2.0f
+    );
+
+    m_primaryBuffer.clear(sf::Color(3, 5, 15));
+
+    const int points = 128;
+    const int halfPoints = points / 2;
+
+    // --- 1. FILLED PORTAL MESH ---
+    sf::VertexArray portal(
+        sf::PrimitiveType::TriangleFan,
+        points + 2
+    );
+
+    // Center glow
+    portal[0].position = center;
+    portal[0].color = sf::Color(220, 245, 255, 170);
+
+    for (int i = 0; i <= points; i++)
+    {
+        float angle = (i / static_cast<float>(points)) * 2.0f * PI;
+
+        // Mirror frequencies (0..64 rises bass->treble, 64..128 falls treble->bass)
+        int mirroredI = (i <= halfPoints) ? i : (points - i);
+        int freq = std::min(511, (mirroredI * 512) / halfPoints);
+
+        float wave = m_magnitudes[freq] * 12.0f; 
+        float breathing = std::sin(time * 2.0f + i * 0.15f) * 4.0f;
+
+        // Base radius 45px + max wave capped at 80px + breathe
+        float radius = 45.0f + std::min(wave, 80.0f) + breathing;
+
+        portal[i + 1].position = {
+            center.x + std::cos(angle) * radius,
+            center.y + std::sin(angle) * radius
+        };
+
+        portal[i + 1].color = sf::Color(80, 200, 255, 150);
+    }
+
+    m_primaryBuffer.draw(portal);
+
+    // --- 2. OUTER WAVEFORM OUTLINE ---
+    sf::VertexArray outline(
+        sf::PrimitiveType::LineStrip,
+        points + 1
+    );
+
+    for (int i = 0; i <= points; i++)
+    {
+        float angle = (i / static_cast<float>(points)) * 2.0f * PI;
+
+        int mirroredI = (i <= halfPoints) ? i : (points - i);
+        int freq = std::min(511, (mirroredI * 512) / halfPoints);
+
+        float wave = m_magnitudes[freq] * 12.0f;
+        float radius = 45.0f + std::min(wave, 80.0f);
+
+        outline[i].position = {
+            center.x + std::cos(angle) * radius,
+            center.y + std::sin(angle) * radius
+        };
+
+        outline[i].color = sf::Color(120, 230, 255, 220);
+    }
+
+    m_primaryBuffer.draw(outline);
+
+    // --- 3. REACTIVE CORE ---
+    float coreSize = 4.0f + bassIntensity * 8.0f;
+
+    sf::CircleShape core(coreSize);
+    core.setOrigin({coreSize, coreSize});
+    core.setPosition(center);
+    core.setFillColor(sf::Color(230, 250, 255, 120));
+
+    m_primaryBuffer.draw(core);
+
+    m_primaryBuffer.display();
+
+    m_feedbackBuffer.clear(sf::Color::Black);
+    m_feedbackBuffer.display();
+
+    return;
+}
 
     // --- PHASE 1: THE FEEDBACK CYCLONE WARP ---
     m_feedbackSprite.setTexture(m_feedbackBuffer.getTexture());
@@ -249,4 +348,9 @@ void Visualizer::draw(sf::RenderWindow& window) {
     // Draw the final compound texture straight to our display window
     sf::Sprite finalDraw(m_primaryBuffer.getTexture());
     window.draw(finalDraw);
+}
+
+bool Visualizer::isCalmMode() const
+{
+    return m_calmMode;
 }
